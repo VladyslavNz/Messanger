@@ -1,7 +1,7 @@
-const Router = require("express");
-const router = new Router();
+// const Router = require("express");
+// const router = new Router();
 
-router.post("/send");
-router.get("/:chatId");
+// router.post("/send");
+// router.get("/:chatId");
 
-module.exports = router;
+// module.exports = router;

@@ -1,48 +1,50 @@
-generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
-}
+  generator client {
+    provider = "prisma-client-js"
+  }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
+  datasource db {
+    provider = "postgresql"
+    url      = env("DATABASE_URL")
+  }
 
-model Users {
-  id Int @id @default(autoincrement())
-  username String @unique
-  email String @unique
-  password String
-  role Role[] 
-  created_at DateTime  @default(now())
-  sendMessages Messages[] @relation("SentMessages")
-  privateChats1 PrivateChats[] @relation("ChatUser1")
-  privateChats2 PrivateChats[] @relation("ChatUser2")
-}
+  model Users {
+    id Int @id @default(autoincrement())
+    username String @unique
+    email String @unique
+    password String 
+    role Role @default(USER)
+    created_at DateTime @default(now())
+    sendMessages Messages[] @relation("SentMessages")
+    privateChats1 PrivateChats[] @relation("ChatUser1")
+    privateChats2 PrivateChats[] @relation("ChatUser2")
+  }
 
-enum Role {
-  USER
-  ADMIn
-}
+  enum Role {
+    USER
+    ADMIN
+  }
 
 
-model PrivateChats {
-  id Int @id @default(autoincrement())
-  user1_id Int
-  user2_id Int
-  user1 Users @relation("ChatUser1", fields: [user1_id], references: [id])
-  user2 Users @relation("ChatUser2", fields: [user2_id], references: [id])
-  messages Messages[]
-  created_at DateTime @default(now())
-}
+  model PrivateChats {
+    id Int @id @default(autoincrement())
+    user1_id Int
+    user2_id Int
+    user1 Users @relation("ChatUser1", fields: [user1_id], references: [id])
+    user2 Users @relation("ChatUser2", fields: [user2_id], references: [id])
+    messages Messages[]
+    created_at DateTime @default(now())
+    @@unique([user1_id, user2_id])
+    @@index([user1_id])
+    @@index([user2_id])
+  }
 
-model Messages {
-  id Int @id @default(autoincrement())
-  chat_id Int
-  sender_id Int
-  message String
-  created_at DateTime @default(now())
+  model Messages {
+    id Int @id @default(autoincrement())
+    chat_id Int
+    sender_id Int
+    message String
+    created_at DateTime @default(now())
 
-  chat PrivateChats @relation(fields: [chat_id], references: [id])
-  sender Users @relation("SentMessages", fields: [sender_id], references: [id])
-}
+    chat PrivateChats @relation(fields: [chat_id], references: [id])
+    sender Users @relation("SentMessages", fields: [sender_id], references: [id])
+  }
