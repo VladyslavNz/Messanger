@@ -6,6 +6,7 @@ const router = new Router();
 
 router.post("/registration", userController.registration);
 router.post("/login", userController.login);
+router.post("/logout", authMiddleware, userController.logout);
 router.get("/auth", authMiddleware, userController.checkAuth);
 router.get(
   "/search",

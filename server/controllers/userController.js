@@ -6,9 +6,9 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const ApiError = require("../error/ApiError");
 
-const generateJwt = (id, username, email, role) => {
-  return jwt.sign({ id, username, email, role }, process.env.SECRET_KEY, {
-    expiresIn: "24h",
+const generateJwt = (id, role) => {
+  return jwt.sign({ id, role }, process.env.SECRET_KEY, {
+    expiresIn: "1h",
   });
 };
 
@@ -43,16 +43,22 @@ class UserController {
           role: userRole,
         },
       });
-      const token = generateJwt(user.id, user.username, user.email, user.role);
-      return res.json({
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-        token,
-      });
+      const token = generateJwt(user.id, user.role);
+      return res
+        .cookie("authcookie", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          // maxAge: 24 * 60 * 60 * 1000,
+        })
+        .json({
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+          },
+        });
     } catch (e) {
       return next(ApiError.ServerError(e.message));
     }
@@ -77,39 +83,58 @@ class UserController {
       if (!isMatch) {
         return next(ApiError.NotAuth("Invalid credentials"));
       }
-      const token = generateJwt(user.id, user.username, user.email, user.role);
-      return res.json({
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-        },
-        token,
-      });
+      const token = generateJwt(user.id, user.role);
+      return res
+        .cookie("authcookie", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          // maxAge: 24 * 60 * 60 * 1000,
+        })
+        .json({
+          user: {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
+          },
+        });
     } catch (e) {
       return next(ApiError.ServerError(e.message));
     }
   }
 
+  async logout(req, res, next) {
+    try {
+      res.clearCookie("authcookie", {
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+      });
+
+      res.json({ message: "logout succesfully" });
+    } catch (e) {
+      return next(ApiError.ServerError("Logout failed"));
+    }
+  }
+
   async checkAuth(req, res, next) {
     try {
-      const token = generateJwt(
-        req.user.id,
-        req.user.username,
-        req.user.email,
-        req.user.role
-      );
+      const token = generateJwt(req.user.id, req.user.role);
 
-      return res.json({
-        user: {
-          id: req.user.id,
-          username: req.user.username,
-          email: req.user.email,
-          role: req.user.role,
-        },
-        token,
-      });
+      return res
+        .cookie("authcookie", token, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          // maxAge: 24 * 60 * 60 * 1000,
+        })
+        .json({
+          user: {
+            id: req.user.id,
+            username: req.user.username,
+          },
+        });
     } catch (e) {
       return next(ApiError.ServerError(e.message));
     }
