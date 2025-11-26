@@ -2,16 +2,9 @@ const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const bcrypt = require("bcrypt");
 const { PrismaClient } = require("@prisma/client");
-
 const prisma = new PrismaClient();
 const ApiError = require("../error/ApiError");
-
-const generateJwt = (id, role) => {
-  return jwt.sign({ id, role }, process.env.SECRET_KEY, {
-    expiresIn: "1h",
-  });
-};
-
+const tokenService = require("../services/token-service");
 class UserController {
   async registration(req, res, next) {
     try {
@@ -43,15 +36,23 @@ class UserController {
           role: userRole,
         },
       });
-      const token = generateJwt(user.id, user.role);
+      const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
+      await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
-        .cookie("authcookie", token, {
+        .cookie("accessToken", tokens.accessToken, {
           httpOnly: true,
           secure: true,
           sameSite: "lax",
-          // maxAge: 24 * 60 * 60 * 1000,
+          maxAge: 30 * 60 * 1000, // 30m
+        })
+        .cookie("refreshToken", tokens.refreshToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
         })
         .json({
+          ...tokens,
           user: {
             id: user.id,
             username: user.username,
@@ -83,15 +84,23 @@ class UserController {
       if (!isMatch) {
         return next(ApiError.NotAuth("Invalid credentials"));
       }
-      const token = generateJwt(user.id, user.role);
+      const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
+      await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
-        .cookie("authcookie", token, {
+        .cookie("accessToken", tokens.accessToken, {
           httpOnly: true,
           secure: true,
           sameSite: "lax",
-          // maxAge: 24 * 60 * 60 * 1000,
+          maxAge: 30 * 60 * 1000, // 30m
+        })
+        .cookie("refreshToken", tokens.refreshToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
         })
         .json({
+          ...tokens,
           user: {
             id: user.id,
             username: user.username,
@@ -106,35 +115,82 @@ class UserController {
 
   async logout(req, res, next) {
     try {
-      res.clearCookie("authcookie", {
-        httpOnly: true,
-        secure: true,
-        sameSite: "lax",
-      });
-
-      res.json({ message: "logout succesfully" });
+      const { refreshToken } = req.cookies;
+      await tokenService.removeToken(refreshToken);
+      res.clearCookie("accessToken");
+      res.clearCookie("refreshToken");
+      return res.json({ message: "Logout success" });
     } catch (e) {
       return next(ApiError.ServerError("Logout failed"));
     }
   }
 
-  async checkAuth(req, res, next) {
+  async refresh(req, res, next) {
     try {
-      const token = generateJwt(req.user.id, req.user.role);
+      const { refreshToken } = req.cookies;
+
+      if (!refreshToken) {
+        throw ApiError.NotAuth("User not authorized");
+      }
+      const userData = tokenService.validateRefreshToken(refreshToken);
+      const tokendb = await tokenService.findToken(refreshToken);
+
+      if (!userData || !tokendb) {
+        throw ApiError.NotAuth("User not authorized");
+      }
+
+      const user = await prisma.users.findUnique({
+        where: { id: userData.id },
+      });
+      const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
+
+      await tokenService.saveToken(user.id, tokens.refreshToken);
 
       return res
-        .cookie("authcookie", token, {
+        .cookie("accessToken", tokens.accessToken, {
           httpOnly: true,
           secure: true,
           sameSite: "lax",
-          // maxAge: 24 * 60 * 60 * 1000,
+          maxAge: 30 * 60 * 1000, // 30m
+        })
+        .cookie("refreshToken", tokens.refreshToken, {
+          httpOnly: true,
+          secure: true,
+          sameSite: "lax",
+          maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
         })
         .json({
+          ...tokens,
           user: {
-            id: req.user.id,
-            username: req.user.username,
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            role: user.role,
           },
         });
+    } catch (e) {
+      next(ApiError.ServerError(e.message));
+    }
+  }
+
+  async checkAuth(req, res, next) {
+    try {
+      const user = await prisma.users.findUnique({
+        where: { id: req.user.id },
+      });
+
+      if (!user) {
+        return next(ApiError.NotAuth("User not found"));
+      }
+
+      return res.json({
+        user: {
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
+      });
     } catch (e) {
       return next(ApiError.ServerError(e.message));
     }
@@ -142,27 +198,25 @@ class UserController {
 
   async getUser(req, res, next) {
     try {
-      const { username, email } = req.query;
-      if (!email && !username) {
-        return next(ApiError.BadRequest("Provide email or username"));
+      const { username } = req.query;
+      if (!username) {
+        return next(ApiError.BadRequest("Username is required"));
       }
 
-      const user = await prisma.users.findFirst({
-        where: { OR: [email ? { email } : {}, username ? { username } : {}] },
-      });
-
-      if (!user) {
-        return next(ApiError.NotFound("User not found"));
-      }
-      res.json({
-        user: {
-          id: user.id,
-          username: user.username,
-          email: user.email,
-          role: user.role,
-          created_at: user.created_at,
+      const users = await prisma.users.findMany({
+        where: {
+          username: { contains: username, mode: "insensitive" },
+          NOT: {
+            id: req.user.id,
+          },
         },
+        select: {
+          id: true,
+          username: true,
+        },
+        take: 20,
       });
+      return res.json(users);
     } catch (e) {
       return next(ApiError.ServerError(e.message));
     }
@@ -173,7 +227,6 @@ class UserController {
         select: {
           id: true,
           username: true,
-          email: true,
           role: true,
           created_at: true,
         },

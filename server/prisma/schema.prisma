@@ -17,6 +17,20 @@
     sendMessages Messages[] @relation("SentMessages")
     privateChats1 PrivateChats[] @relation("ChatUser1")
     privateChats2 PrivateChats[] @relation("ChatUser2")
+    hash_token RefreshToken[]
+
+  }
+
+  model RefreshToken {
+    id Int @id @default(autoincrement())
+    user_id Int
+    user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+    hash_token String @unique
+    revoked Boolean @default(false)
+    expires_in DateTime
+    created_at DateTime @default(now())
+    @@index([user_id])
+    @@index([expires_in])
   }
 
   enum Role {

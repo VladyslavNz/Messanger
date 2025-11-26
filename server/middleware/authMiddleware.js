@@ -1,16 +1,21 @@
 const jwt = require("jsonwebtoken");
 const ApiError = require("../error/ApiError");
+const tokenService = require("../services/token-service");
 
 module.exports = function authMiddleware(req, res, next) {
   try {
-    const authCookie = req.cookies["authcookie"];
-    if (!authCookie) {
-      return next(ApiError.NotAuth("Authentication cookie not found"));
+    const accessToken = req.cookies.accessToken;
+    if (!accessToken) {
+      return next(ApiError.NotAuth("Not authorized"));
     }
-    const decoded = jwt.verify(authCookie, process.env.SECRET_KEY);
-    req.user = decoded;
+    const userData = tokenService.validateAccessToken(accessToken);
+    if (!userData) {
+      return next(ApiError.NotAuth("Access token expired or invalid"));
+    }
+
+    req.user = userData;
     next();
   } catch (e) {
-    return next(ApiError.NotAuth("Invalid or expired token."));
+    return next(ApiError.NotAuth("Not authorized"));
   }
 };
