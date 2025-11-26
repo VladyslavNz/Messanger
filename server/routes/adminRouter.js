@@ -1,7 +1,7 @@
-const Router = require("express");
-const router = new Router();
+// const Router = require("express");
+// const router = new Router();
 
-router.get("/stats");
-router.get("/users");
+// router.get("/stats");
+// router.get("/users");
 
-module.exports = router;
+// module.exports = router;
