@@ -6,7 +6,12 @@ const router = new Router();
 
 router.post("/registration", userController.registration);
 router.post("/login", userController.login);
-router.post("/logout", authMiddleware, userController.logout);
+router.post(
+  "/logout",
+  authMiddleware,
+  authenticateRole(["USER", "ADMIN"]),
+  userController.logout
+);
 router.get("/auth", authMiddleware, userController.checkAuth);
 router.get("/refresh", userController.refresh);
 router.get(

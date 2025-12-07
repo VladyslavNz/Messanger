@@ -5,6 +5,7 @@
   datasource db {
     provider = "postgresql"
     url      = env("DATABASE_URL")
+    directUrl = env("DIRECT_URL")
   }
 
   model Users {
@@ -43,10 +44,12 @@
     id Int @id @default(autoincrement())
     user1_id Int
     user2_id Int
+    deleted_for_user1 Boolean @default(false)
+    deleted_for_user2 Boolean @default(false)
     user1 Users @relation("ChatUser1", fields: [user1_id], references: [id])
     user2 Users @relation("ChatUser2", fields: [user2_id], references: [id])
     messages Messages[]
-    created_at DateTime @default(now())
+    created_at DateTime @updatedAt
     @@unique([user1_id, user2_id])
     @@index([user1_id])
     @@index([user2_id])
@@ -59,6 +62,6 @@
     message String
     created_at DateTime @default(now())
 
-    chat PrivateChats @relation(fields: [chat_id], references: [id])
+    chat PrivateChats @relation(fields: [chat_id], references: [id], onDelete: Cascade)
     sender Users @relation("SentMessages", fields: [sender_id], references: [id])
   }
