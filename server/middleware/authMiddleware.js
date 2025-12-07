@@ -4,10 +4,16 @@ const tokenService = require("../services/token-service");
 
 module.exports = function authMiddleware(req, res, next) {
   try {
-    const accessToken = req.cookies.accessToken;
-    if (!accessToken) {
+    const authorizationHeader = req.headers.authorization;
+    if (!authorizationHeader) {
       return next(ApiError.NotAuth("Not authorized"));
     }
+
+    const accessToken = authorizationHeader.split(" ")[1];
+    if (!accessToken) {
+      return next(ApiError.NotAuth("User not authorized"));
+    }
+
     const userData = tokenService.validateAccessToken(accessToken);
     if (!userData) {
       return next(ApiError.NotAuth("Access token expired or invalid"));

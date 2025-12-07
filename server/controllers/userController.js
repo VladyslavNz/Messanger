@@ -39,12 +39,6 @@ class UserController {
       const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
-        .cookie("accessToken", tokens.accessToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          maxAge: 30 * 60 * 1000, // 30m
-        })
         .cookie("refreshToken", tokens.refreshToken, {
           httpOnly: true,
           secure: true,
@@ -52,7 +46,8 @@ class UserController {
           maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
         })
         .json({
-          ...tokens,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
           user: {
             id: user.id,
             username: user.username,
@@ -87,12 +82,6 @@ class UserController {
       const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
-        .cookie("accessToken", tokens.accessToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          maxAge: 30 * 60 * 1000, // 30m
-        })
         .cookie("refreshToken", tokens.refreshToken, {
           httpOnly: true,
           secure: true,
@@ -100,7 +89,8 @@ class UserController {
           maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
         })
         .json({
-          ...tokens,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
           user: {
             id: user.id,
             username: user.username,
@@ -117,7 +107,6 @@ class UserController {
     try {
       const { refreshToken } = req.cookies;
       await tokenService.removeToken(refreshToken);
-      res.clearCookie("accessToken");
       res.clearCookie("refreshToken");
       return res.json({ message: "Logout success" });
     } catch (e) {
@@ -147,12 +136,6 @@ class UserController {
       await tokenService.saveToken(user.id, tokens.refreshToken);
 
       return res
-        .cookie("accessToken", tokens.accessToken, {
-          httpOnly: true,
-          secure: true,
-          sameSite: "lax",
-          maxAge: 30 * 60 * 1000, // 30m
-        })
         .cookie("refreshToken", tokens.refreshToken, {
           httpOnly: true,
           secure: true,
@@ -160,7 +143,8 @@ class UserController {
           maxAge: 30 * 24 * 60 * 60 * 1000, // 30d
         })
         .json({
-          ...tokens,
+          accessToken: tokens.accessToken,
+          refreshToken: tokens.refreshToken,
           user: {
             id: user.id,
             username: user.username,
