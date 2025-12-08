@@ -19,6 +19,8 @@
     privateChats1 PrivateChats[] @relation("ChatUser1")
     privateChats2 PrivateChats[] @relation("ChatUser2")
     hash_token RefreshToken[]
+    isBanned  Boolean @default(false)
+    banReason String? 
 
   }
 
@@ -46,8 +48,8 @@
     user2_id Int
     deleted_for_user1 Boolean @default(false)
     deleted_for_user2 Boolean @default(false)
-    user1 Users @relation("ChatUser1", fields: [user1_id], references: [id])
-    user2 Users @relation("ChatUser2", fields: [user2_id], references: [id])
+    user1 Users @relation("ChatUser1", fields: [user1_id], references: [id], onDelete: Cascade)
+    user2 Users @relation("ChatUser2", fields: [user2_id], references: [id], onDelete: Cascade)
     messages Messages[]
     created_at DateTime @updatedAt
     @@unique([user1_id, user2_id])
@@ -63,5 +65,5 @@
     created_at DateTime @default(now())
 
     chat PrivateChats @relation(fields: [chat_id], references: [id], onDelete: Cascade)
-    sender Users @relation("SentMessages", fields: [sender_id], references: [id])
+    sender Users @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
   }
