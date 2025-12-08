@@ -79,6 +79,16 @@ class UserController {
       if (!isMatch) {
         return next(ApiError.NotAuth("Invalid credentials"));
       }
+      if (user.isBanned) {
+        return next(
+          ApiError.Forbidden(
+            `Your account is banned. Reason: ${
+              user.banReason || "No reason provided"
+            }`
+          )
+        );
+      }
+
       const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
