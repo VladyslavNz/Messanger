@@ -45,6 +45,19 @@ class MessageController {
           created_at: new Date(),
         },
       });
+
+      const room = chatId.toString();
+      req.io.to(room).emit("receive_message", newMessage);
+      const receiveId =
+        chat.user1_id === senderId ? chat.user2_id : chat.user1_id;
+      req.io.to(receiveId.toString()).emit("new_notification", {
+        chatId: chat.id,
+        sender: {
+          username: req.user.username,
+        },
+        text: text,
+        created_at: newMessage.created_at,
+      });
       return res.json(newMessage);
     } catch (e) {
       return next(ApiError.ServerError(e.message));
