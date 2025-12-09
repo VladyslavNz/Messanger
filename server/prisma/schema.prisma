@@ -63,6 +63,7 @@
     sender_id Int
     message String
     created_at DateTime @default(now())
+    isRead Boolean @default(false)
 
     chat PrivateChats @relation(fields: [chat_id], references: [id], onDelete: Cascade)
     sender Users @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
