@@ -5,19 +5,8 @@ const ApiError = require("../error/ApiError");
 class RoomController {
   async createRoom(req, res, next) {
     try {
-      const { partnerId, type, name } = req.body;
+      const {participantIds, type, name } = req.body;
       const currentUserId = req.user.id;
-
-      if (!partnerId) {
-        return next(ApiError.BadRequest("Partner id is required"));
-      }
-      // const partnerIdStr = String(partnerId);
-
-      if (currentUserId === partnerId) {
-        return next(
-          ApiError.BadRequest("You cannot create room with yourself"),
-        );
-      }
 
       if (!name) {
         return next(ApiError.BadRequest("Room name is required"));
@@ -27,64 +16,56 @@ class RoomController {
         return next(ApiError.BadRequest("Invalid room type"));
       }
 
-      const partner = await prisma.users.findUnique({
-        where: { id: partnerId },
-      });
-      if (!partner) {
-        return next(ApiError.NotFound("User not found"));
+      const roomName = name.trim();
+      if (!roomName) {
+        return next(ApiError.BadRequest("Room name cannot be empty"));
       }
 
-      // const existingRoom = await prisma.rooms.findFirst({
-      //   where: {
-      //     type: "permanent",
-      //     roomMembers: {
-      //       every: {
-      //         userId: {
-      //           in: [currentUserId, partnerIdStr],
-      //         },
-      //       },
-      //     },
-      //   },
-      // });
+      const inputParticipantIds = Array.isArray(participantIds)
+        ? participantIds
+        : [];
 
-      // const exisitingTempRoom = await prisma.rooms.findFirst({
-      //   where: {
-      //     type: "temporary",
-      //     roomMembers: {
-      //       every: {
-      //         userId: {
-      //           in: [currentUserId, partnerIdStr],
-      //         },
-      //       },
-      //     },
-      //   },
-      // });
+      const normalizedParticipantIds = [
+        ...new Set(
+          inputParticipantIds
+            .map((id) => String(id).trim())
+            .filter((id) => id && id !== currentUserId),
+        ),
+      ];
 
-      // if (existingRoom) {
-      //   return res.json(existingRoom);
-      // }
+      if (normalizedParticipantIds.length > 0) {
+        const usersCount = await prisma.users.count({
+          where: {
+            id: {
+              in: normalizedParticipantIds,
+            },
+          },
+        });
 
-      // if (exisitingTempRoom) {
-      //   return res.json(exisitingTempRoom);
-      // }
+        if (usersCount !== normalizedParticipantIds.length) {
+          return next(ApiError.NotFound("One or more users were not found"));
+        }
+      }
+
+      const membersToCreate = [
+        {
+          userId: currentUserId,
+          role: "admin",
+        },
+        ...normalizedParticipantIds.map((userId) => ({
+          userId,
+          role: "user",
+        })),
+      ];
 
       const room = await prisma.rooms.create({
         data: {
-          name,
+          name: roomName,
           type,
           creatorId: currentUserId,
           lastActivity: new Date(),
           roomMembers: {
-            create: [
-              {
-                userId: currentUserId,
-                role: "admin",
-              },
-              {
-                userId: partnerId,
-                role: "user",
-              },
-            ],
+            create: membersToCreate,
           },
         },
         include: {
