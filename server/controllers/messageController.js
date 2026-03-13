@@ -6,29 +6,29 @@ class MessageController {
   async sendMessage(req, res, next) {
     try {
       const { text } = req.body;
-      const { chatId } = req.params;
+      const { roomId } = req.params;
       const senderId = req.user.id;
-      const chatIdInt = Number(chatId);
+      const roomIdInt = Number(roomId);
 
       if (!text || text.trim() === "") {
         return next(ApiError.BadRequest("message cannot be empty"));
       }
 
-      const chat = await prisma.privateChats.findUnique({
-        where: { id: chatIdInt },
+      const room = await prisma.privateChats.findUnique({
+        where: { id: roomIdInt },
       });
 
-      if (!chat) {
-        return next(ApiError.NotFound("Chat not found"));
+      if (!room) {
+        return next(ApiError.NotFound("Room not found"));
       }
 
-      if (chat.user1_id !== senderId && chat.user2_id !== senderId) {
+      if (room.user1_id !== senderId && room.user2_id !== senderId) {
         return next(ApiError.Forbidden("Access denied"));
       }
 
       const newMessage = await prisma.messages.create({
         data: {
-          chat_id: chatIdInt,
+          chat_id: roomIdInt,
           sender_id: senderId,
           message: text,
         },
@@ -38,7 +38,7 @@ class MessageController {
       });
 
       await prisma.privateChats.update({
-        where: { id: chatIdInt },
+        where: { id: roomIdInt },
         data: {
           deleted_for_user1: false,
           deleted_for_user2: false,
@@ -46,12 +46,12 @@ class MessageController {
         },
       });
 
-      const room = chatId.toString();
-      req.io.to(room).emit("receive_message", newMessage);
+      const roomSocket = roomId.toString();
+      req.io.to(roomSocket).emit("receive_message", newMessage);
       const receiveId =
-        chat.user1_id === senderId ? chat.user2_id : chat.user1_id;
+        room.user1_id === senderId ? room.user2_id : room.user1_id;
       req.io.to(receiveId.toString()).emit("new_notification", {
-        chatId: chat.id,
+        roomId: room.id,
         sender: {
           username: req.user.username,
         },
@@ -66,29 +66,29 @@ class MessageController {
 
   async getMessages(req, res, next) {
     try {
-      const { chatId } = req.params;
+      const { roomId } = req.params;
       const userId = req.user.id;
-      const chatIdInt = Number(chatId);
+      const roomIdInt = Number(roomId);
 
       let { limit, page } = req.query;
       page = page || 1;
       limit = limit || 20;
       const offset = (page - 1) * limit;
 
-      const chat = await prisma.privateChats.findUnique({
-        where: { id: chatIdInt },
+      const room = await prisma.privateChats.findUnique({
+        where: { id: roomIdInt },
       });
 
-      if (!chat) {
-        return next(ApiError.NotFound("Chat not found"));
+      if (!room) {
+        return next(ApiError.NotFound("Room not found"));
       }
 
-      if (chat.user1_id !== userId && chat.user2_id !== userId) {
+      if (room.user1_id !== userId && room.user2_id !== userId) {
         return next(ApiError.Forbidden("Access denied"));
       }
 
       const messages = await prisma.messages.findMany({
-        where: { chat_id: chatIdInt },
+        where: { chat_id: roomIdInt },
         orderBy: {
           created_at: "desc",
         },
@@ -120,7 +120,7 @@ class MessageController {
 
       if (message.sender_id !== userId) {
         return next(
-          ApiError.Forbidden("You can only delete your own messages")
+          ApiError.Forbidden("You can only delete your own messages"),
         );
       }
 

@@ -26,7 +26,7 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL || "http://localhost:5173",
     credentials: true,
-  })
+  }),
 );
 app.use(express.json());
 app.use(cookieParser());
@@ -50,29 +50,32 @@ io.on("connection", (socket) => {
 
   console.log(`User connected: ${username} (${socket.id})`);
 
-  socket.on("join_chat", (chatId) => {
-    socket.join(chatId);
-    console.log(`User ${username} joined chat: ${chatId}`);
-  });
+  const joinRoom = (roomId) => {
+    socket.join(roomId);
+    console.log(`User ${username} joined room: ${roomId}`);
+  };
+  socket.on("join_room", joinRoom);
+  socket.on("join_chat", joinRoom);
 
-  socket.on("typing", (chatId) => {
-    socket.to(chatId).emit("user_typing", {
+  socket.on("typing", (roomId) => {
+    socket.to(roomId).emit("user_typing", {
       userId: userId,
       username: username,
     });
   });
 
-  socket.on("stop_typing", (chatId) => {
-    socket.to(chatId).emit("user_stop_typing", { userId: userId });
+  socket.on("stop_typing", (roomId) => {
+    socket.to(roomId).emit("user_stop_typing", { userId: userId });
   });
 
-  socket.on("mark_as_read", async ({ chatId }) => {
+  socket.on("mark_as_read", async ({ roomId, chatId }) => {
     try {
-      const IntChatId = Number(chatId);
+      const targetRoomId = roomId ?? chatId;
+      const intRoomId = Number(targetRoomId);
 
       await prisma.messages.updateMany({
         where: {
-          chat_id: IntChatId,
+          chat_id: intRoomId,
           sender_id: { not: userId },
           isRead: false,
         },
@@ -81,7 +84,10 @@ io.on("connection", (socket) => {
         },
       });
 
-      socket.to(chatId).emit("message_read", { chatId });
+      socket.to(targetRoomId).emit("message_read", {
+        roomId: targetRoomId,
+        chatId: targetRoomId,
+      });
     } catch (e) {
       console.log("Error marking message as read:", e);
     }
