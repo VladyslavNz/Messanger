@@ -5,37 +5,33 @@ const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const ApiError = require("../error/ApiError");
 const tokenService = require("../services/token-service");
+const recoveryService = require("../services/recovery-service");
 class UserController {
   async registration(req, res, next) {
     try {
-      const { username, email, password, role } = req.body;
-      if (!username || !email || !password) {
-        return next(
-          ApiError.BadRequest("Must have username, email, and password.")
-        );
+      const { username, password } = req.body;
+      if (!username || !password) {
+        return next(ApiError.BadRequest("Must have username, and password."));
       }
       const existingUser = await prisma.users.findFirst({
-        where: { email },
+        where: { username },
       });
       if (existingUser) {
         return next(
-          ApiError.Conflict("A user with this email already exists.")
+          ApiError.Conflict("A user with this username already exists."),
         );
       }
       const hashPassword = await bcrypt.hash(password, 10);
-      let userRole = "USER";
-      if (role && ["USER", "ADMIN"].includes(role.toUpperCase())) {
-        userRole = role.toUpperCase();
-      }
-
+      const { existingCode, hashRecoveryCode } =
+        await recoveryService.generate();
       const user = await prisma.users.create({
         data: {
           username,
-          email,
-          password: hashPassword,
-          role: userRole,
+          passwordHash: hashPassword,
+          recoveryKeyHash: hashRecoveryCode,
         },
       });
+
       const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
@@ -51,31 +47,31 @@ class UserController {
           user: {
             id: user.id,
             username: user.username,
-            email: user.email,
-            role: user.role,
           },
+          recoveryKey: existingCode,
         });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("registration error:", e);
+      return next(ApiError.ServerError("Failed to register user"));
     }
   }
 
   async login(req, res, next) {
     try {
-      const { email, password } = req.body;
-      if (!email || !password) {
+      const { username, password } = req.body;
+      if (!username || !password) {
         return next(
-          ApiError.BadRequest("Invalid Email and password are required")
+          ApiError.BadRequest("Invalid Username and password are required"),
         );
       }
 
       const user = await prisma.users.findUnique({
-        where: { email },
+        where: { username },
       });
       if (!user) {
         return next(ApiError.NotAuth("Invalid credentials"));
       }
-      const isMatch = await bcrypt.compare(password, user.password);
+      const isMatch = await bcrypt.compare(password, user.passwordHash);
       if (!isMatch) {
         return next(ApiError.NotAuth("Invalid credentials"));
       }
@@ -84,8 +80,8 @@ class UserController {
           ApiError.Forbidden(
             `Your account is banned. Reason: ${
               user.banReason || "No reason provided"
-            }`
-          )
+            }`,
+          ),
         );
       }
 
@@ -104,12 +100,12 @@ class UserController {
           user: {
             id: user.id,
             username: user.username,
-            email: user.email,
             role: user.role,
           },
         });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("login error:", e);
+      return next(ApiError.ServerError("Failed to login"));
     }
   }
 
@@ -158,12 +154,12 @@ class UserController {
           user: {
             id: user.id,
             username: user.username,
-            email: user.email,
             role: user.role,
           },
         });
     } catch (e) {
-      next(ApiError.ServerError(e.message));
+      console.error("refresh error:", e);
+      return next(ApiError.ServerError("Failed to refresh session"));
     }
   }
 
@@ -181,12 +177,12 @@ class UserController {
         user: {
           id: user.id,
           username: user.username,
-          email: user.email,
           role: user.role,
         },
       });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("checkAuth error:", e);
+      return next(ApiError.ServerError("Failed to check auth"));
     }
   }
 
@@ -212,7 +208,8 @@ class UserController {
       });
       return res.json(users);
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("getUser error:", e);
+      return next(ApiError.ServerError("Failed to get users"));
     }
   }
   async findAllUsers(req, res, next) {
@@ -227,7 +224,8 @@ class UserController {
       });
       return res.json(allUsers);
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("findAllUsers error:", e);
+      return next(ApiError.ServerError("Failed to get all users"));
     }
   }
 }

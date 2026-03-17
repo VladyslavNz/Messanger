@@ -1,70 +1,112 @@
-  generator client {
-    provider = "prisma-client-js"
-  }
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
 
-  datasource db {
-    provider = "postgresql"
-    url      = env("DATABASE_URL")
-    directUrl = env("DIRECT_URL")
-  }
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
 
-  model Users {
-    id Int @id @default(autoincrement())
-    username String @unique
-    email String @unique
-    password String 
-    role Role @default(USER)
-    created_at DateTime @default(now())
-    sendMessages Messages[] @relation("SentMessages")
-    privateChats1 PrivateChats[] @relation("ChatUser1")
-    privateChats2 PrivateChats[] @relation("ChatUser2")
-    hash_token RefreshToken[]
-    isBanned  Boolean @default(false)
-    banReason String? 
+enum RoomType {
+  permanent
+  ephemeral
+}
 
-  }
+enum RoomRole {
+  admin
+  user
+}
 
-  model RefreshToken {
-    id Int @id @default(autoincrement())
-    user_id Int
-    user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
-    hash_token String @unique
-    revoked Boolean @default(false)
-    expires_in DateTime
-    created_at DateTime @default(now())
-    @@index([user_id])
-    @@index([expires_in])
-  }
+enum InviteStatus {
+  pending
+  accepted
+  rejected
+}
 
-  enum Role {
-    USER
-    ADMIN
-  }
+model User {
+  id              String   @id @default(uuid()) @db.Uuid
+  username        String   @unique
+  passwordHash    String   @map("password_hash")
+  publicKey       String   @map("public_key")
+  recoveryKeyHash String   @map("recovery_key_hash")
+  createdAt       DateTime @default(now()) @map("created_at")
 
+  createdRooms    Room[]       @relation("RoomCreator")
+  memberships     RoomMember[]
+  messages        Message[]
+  sentInvites     Invite[]     @relation("InviteSender")
+  receivedInvites Invite[]     @relation("InviteReceiver")
+  sessions        Session[]
 
-  model PrivateChats {
-    id Int @id @default(autoincrement())
-    user1_id Int
-    user2_id Int
-    deleted_for_user1 Boolean @default(false)
-    deleted_for_user2 Boolean @default(false)
-    user1 Users @relation("ChatUser1", fields: [user1_id], references: [id], onDelete: Cascade)
-    user2 Users @relation("ChatUser2", fields: [user2_id], references: [id], onDelete: Cascade)
-    messages Messages[]
-    created_at DateTime @updatedAt
-    @@unique([user1_id, user2_id])
-    @@index([user1_id])
-    @@index([user2_id])
-  }
+  @@map("users")
+}
 
-  model Messages {
-    id Int @id @default(autoincrement())
-    chat_id Int
-    sender_id Int
-    message String
-    created_at DateTime @default(now())
-    isRead Boolean @default(false)
+model Room {
+  id           String   @id @default(uuid()) @db.Uuid
+  creatorId    String   @map("creator_id") @db.Uuid
+  type         RoomType
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastActivity DateTime @map("last_activity")
 
-    chat PrivateChats @relation(fields: [chat_id], references: [id], onDelete: Cascade)
-    sender Users @relation("SentMessages", fields: [sender_id], references: [id], onDelete: Cascade)
-  }
+  creator  User         @relation("RoomCreator", fields: [creatorId], references: [id])
+  members  RoomMember[]
+  messages Message[]
+  invites  Invite[]
+
+  @@map("rooms")
+}
+
+model RoomMember {
+  id       String   @id @default(uuid()) @db.Uuid
+  roomId   String   @map("room_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  role     RoomRole
+  joinedAt DateTime @default(now()) @map("joined_at")
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@map("room_members")
+}
+
+model Message {
+  id               String   @id @default(uuid()) @db.Uuid
+  roomId           String   @map("room_id") @db.Uuid
+  senderId         String   @map("sender_id") @db.Uuid
+  encryptedPayload String   @map("encrypted_payload")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@map("messages")
+}
+
+model Invite {
+  id         String       @id @default(uuid()) @db.Uuid
+  roomId     String       @map("room_id") @db.Uuid
+  senderId   String       @map("sender_id") @db.Uuid
+  receiverId String       @map("receiver_id") @db.Uuid
+  status     InviteStatus
+  createdAt  DateTime     @default(now()) @map("created_at")
+
+  room     Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  sender   User @relation("InviteSender", fields: [senderId], references: [id])
+  receiver User @relation("InviteReceiver", fields: [receiverId], references: [id])
+
+  @@map("invites")
+}
+
+model Session {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  refreshTokenHash String   @map("refresh_token_hash")
+  expiresAt        DateTime @map("expires_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
