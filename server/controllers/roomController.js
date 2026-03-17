@@ -5,7 +5,7 @@ const ApiError = require("../error/ApiError");
 class RoomController {
   async createRoom(req, res, next) {
     try {
-      const {participantIds, type, name } = req.body;
+      const { participantIds, type, name } = req.body;
       const currentUserId = req.user.id;
 
       if (!name) {
@@ -84,7 +84,8 @@ class RoomController {
 
       return res.json(room);
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("createRoom error:", e);
+      return next(ApiError.ServerError("Failed to create room"));
     }
   }
 
@@ -126,7 +127,8 @@ class RoomController {
         message: "Room deleted successfully",
       });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("deleteRoom error:", e);
+      return next(ApiError.ServerError("Failed to delete room"));
     }
   }
 
@@ -169,7 +171,8 @@ class RoomController {
         message: "Room deleted successfully",
       });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("deleteTemporaryRoom error:", e);
+      return next(ApiError.ServerError("Failed to delete temporary room"));
     }
   }
 
@@ -203,7 +206,8 @@ class RoomController {
         message: "You have left the room",
       });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("leaveRoom error:", e);
+      return next(ApiError.ServerError("Failed to leave room"));
     }
   }
 
@@ -236,7 +240,8 @@ class RoomController {
       });
       return res.json(rooms);
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("getUserRooms error:", e);
+      return next(ApiError.ServerError("Failed to get user rooms"));
     }
   }
 }

@@ -22,7 +22,8 @@ class UserController {
         );
       }
       const hashPassword = await bcrypt.hash(password, 10);
-      const { existingCode, hashRecoveryCode } = await recoveryService.generate();
+      const { existingCode, hashRecoveryCode } =
+        await recoveryService.generate();
       const user = await prisma.users.create({
         data: {
           username,
@@ -50,7 +51,8 @@ class UserController {
           recoveryKey: existingCode,
         });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("registration error:", e);
+      return next(ApiError.ServerError("Failed to register user"));
     }
   }
 
@@ -102,7 +104,8 @@ class UserController {
           },
         });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("login error:", e);
+      return next(ApiError.ServerError("Failed to login"));
     }
   }
 
@@ -155,7 +158,8 @@ class UserController {
           },
         });
     } catch (e) {
-      next(ApiError.ServerError(e.message));
+      console.error("refresh error:", e);
+      return next(ApiError.ServerError("Failed to refresh session"));
     }
   }
 
@@ -177,7 +181,8 @@ class UserController {
         },
       });
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("checkAuth error:", e);
+      return next(ApiError.ServerError("Failed to check auth"));
     }
   }
 
@@ -203,7 +208,8 @@ class UserController {
       });
       return res.json(users);
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("getUser error:", e);
+      return next(ApiError.ServerError("Failed to get users"));
     }
   }
   async findAllUsers(req, res, next) {
@@ -218,7 +224,8 @@ class UserController {
       });
       return res.json(allUsers);
     } catch (e) {
-      return next(ApiError.ServerError(e.message));
+      console.error("findAllUsers error:", e);
+      return next(ApiError.ServerError("Failed to get all users"));
     }
   }
 }
