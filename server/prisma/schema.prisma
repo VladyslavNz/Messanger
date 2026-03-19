@@ -81,6 +81,7 @@ model Message {
   room   Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
   sender User @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
+  @@index([roomId, createdAt, id])
   @@map("messages")
 }
 
