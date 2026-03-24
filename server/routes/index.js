@@ -7,7 +7,6 @@ const roomRouter = require("./roomRouter");
 
 router.use("/user", userRouter);
 router.use("/room", roomRouter);
-router.use("/chat", roomRouter);
 // router.use("/admin", adminRouter);
 
 module.exports = router;

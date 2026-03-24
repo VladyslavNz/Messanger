@@ -9,7 +9,7 @@ const recoveryService = require("../services/recovery-service");
 class UserController {
   async registration(req, res, next) {
     try {
-      const { username, password } = req.body;
+      const { username, password, publicKey } = req.body;
       if (!username || !password) {
         return next(ApiError.BadRequest("Must have username, and password."));
       }
@@ -21,6 +21,11 @@ class UserController {
           ApiError.Conflict("A user with this username already exists."),
         );
       }
+
+      if (!publicKey) {
+        return next(ApiError.BadRequest("Public key is required for registration."));
+      }
+
       const hashPassword = await bcrypt.hash(password, 10);
       const { existingCode, hashRecoveryCode } =
         await recoveryService.generate();
@@ -29,10 +34,11 @@ class UserController {
           username,
           passwordHash: hashPassword,
           recoveryKeyHash: hashRecoveryCode,
+          publicKey
         },
       });
 
-      const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
+      const tokens = tokenService.generateJwt({ id: user.id });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
         .cookie("refreshToken", tokens.refreshToken, {
@@ -58,7 +64,7 @@ class UserController {
 
   async login(req, res, next) {
     try {
-      const { username, password } = req.body;
+      const { username, password, publicKey } = req.body;
       if (!username || !password) {
         return next(
           ApiError.BadRequest("Invalid Username and password are required"),
@@ -75,17 +81,24 @@ class UserController {
       if (!isMatch) {
         return next(ApiError.NotAuth("Invalid credentials"));
       }
-      if (user.isBanned) {
-        return next(
-          ApiError.Forbidden(
-            `Your account is banned. Reason: ${
-              user.banReason || "No reason provided"
-            }`,
-          ),
-        );
+      // if (user.isBanned) {
+      //   return next(
+      //     ApiError.Forbidden(
+      //       `Your account is banned. Reason: ${
+      //         user.banReason || "No reason provided"
+      //       }`,
+      //     ),
+      //   );
+      // }
+
+      if (publicKey && publicKey !== user.publicKey) {
+        await prisma.users.update({
+          where: { id: user.id },
+          data: { publicKey },
+        });
       }
 
-      const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
+      const tokens = tokenService.generateJwt({ id: user.id});
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
         .cookie("refreshToken", tokens.refreshToken, {
@@ -100,7 +113,6 @@ class UserController {
           user: {
             id: user.id,
             username: user.username,
-            role: user.role,
           },
         });
     } catch (e) {
@@ -137,7 +149,7 @@ class UserController {
       const user = await prisma.users.findUnique({
         where: { id: userData.id },
       });
-      const tokens = tokenService.generateJwt({ id: user.id, role: user.role });
+      const tokens = tokenService.generateJwt({ id: user.id });
 
       await tokenService.saveToken(user.id, tokens.refreshToken);
 
@@ -154,7 +166,6 @@ class UserController {
           user: {
             id: user.id,
             username: user.username,
-            role: user.role,
           },
         });
     } catch (e) {
@@ -177,7 +188,6 @@ class UserController {
         user: {
           id: user.id,
           username: user.username,
-          role: user.role,
         },
       });
     } catch (e) {
@@ -218,7 +228,6 @@ class UserController {
         select: {
           id: true,
           username: true,
-          role: true,
           created_at: true,
         },
       });

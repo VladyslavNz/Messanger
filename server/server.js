@@ -68,30 +68,30 @@ io.on("connection", (socket) => {
     socket.to(roomId).emit("user_stop_typing", { userId: userId });
   });
 
-  socket.on("mark_as_read", async ({ roomId, chatId }) => {
-    try {
-      const targetRoomId = roomId ?? chatId;
-      const intRoomId = Number(targetRoomId);
+  // socket.on("mark_as_read", async ({ roomId, chatId }) => {
+  //   try {
+  //     const targetRoomId = roomId ?? chatId;
+  //     const intRoomId = Number(targetRoomId);
 
-      await prisma.messages.updateMany({
-        where: {
-          chat_id: intRoomId,
-          sender_id: { not: userId },
-          isRead: false,
-        },
-        data: {
-          isRead: true,
-        },
-      });
+  //     await prisma.messages.updateMany({
+  //       where: {
+  //         chat_id: intRoomId,
+  //         sender_id: { not: userId },
+  //         isRead: false,
+  //       },
+  //       data: {
+  //         isRead: true,
+  //       },
+  //     });
 
-      socket.to(targetRoomId).emit("message_read", {
-        roomId: targetRoomId,
-        chatId: targetRoomId,
-      });
-    } catch (e) {
-      console.log("Error marking message as read:", e);
-    }
-  });
+  //     socket.to(targetRoomId).emit("message_read", {
+  //       roomId: targetRoomId,
+  //       chatId: targetRoomId,
+  //     });
+  //   } catch (e) {
+  //     console.log("Error marking message as read:", e);
+  //   }
+  // });
 
   socket.on("disconnect", () => {
     onlineUsers.delete(userId);

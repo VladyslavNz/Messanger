@@ -8,11 +8,11 @@ module.exports = (socket, next) => {
       return next(ApiError.NotAuth("User not authorized"));
     }
 
-    const userData = tokenService.validateAccessToken(token);
-    if (!userData) {
+    const user = tokenService.validateAccessToken(token);
+    if (!user) {
       return next(ApiError.NotAuth("Access token expired or invalid"));
     }
-    socket.userData = userData;
+    socket.user = user;
     next();
   } catch (e) {
     return next(ApiError.ServerError(e.message));

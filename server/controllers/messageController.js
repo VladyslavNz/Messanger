@@ -29,10 +29,6 @@ class MessageController {
         return next(ApiError.BadRequest("Message cannot be empty"));
       }
 
-      if (!encryptedPayload) {
-        return next(ApiError.BadRequest("Message cannot be empty"));
-      }
-
       if (encryptedPayload.length > 10000) {
         return next(ApiError.BadRequest("Message is too long"));
       }
