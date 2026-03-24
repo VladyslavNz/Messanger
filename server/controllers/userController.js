@@ -13,7 +13,7 @@ class UserController {
       if (!username || !password) {
         return next(ApiError.BadRequest("Must have username, and password."));
       }
-      const existingUser = await prisma.users.findFirst({
+      const existingUser = await prisma.user.findFirst({
         where: { username },
       });
       if (existingUser) {
@@ -23,18 +23,20 @@ class UserController {
       }
 
       if (!publicKey) {
-        return next(ApiError.BadRequest("Public key is required for registration."));
+        return next(
+          ApiError.BadRequest("Public key is required for registration."),
+        );
       }
 
       const hashPassword = await bcrypt.hash(password, 10);
       const { existingCode, hashRecoveryCode } =
         await recoveryService.generate();
-      const user = await prisma.users.create({
+      const user = await prisma.user.create({
         data: {
           username,
           passwordHash: hashPassword,
           recoveryKeyHash: hashRecoveryCode,
-          publicKey
+          publicKey,
         },
       });
 
@@ -71,7 +73,7 @@ class UserController {
         );
       }
 
-      const user = await prisma.users.findUnique({
+      const user = await prisma.user.findUnique({
         where: { username },
       });
       if (!user) {
@@ -92,13 +94,13 @@ class UserController {
       // }
 
       if (publicKey && publicKey !== user.publicKey) {
-        await prisma.users.update({
+        await prisma.user.update({
           where: { id: user.id },
           data: { publicKey },
         });
       }
 
-      const tokens = tokenService.generateJwt({ id: user.id});
+      const tokens = tokenService.generateJwt({ id: user.id });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res
         .cookie("refreshToken", tokens.refreshToken, {
@@ -146,7 +148,7 @@ class UserController {
         throw ApiError.NotAuth("User not authorized");
       }
 
-      const user = await prisma.users.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: userData.id },
       });
       const tokens = tokenService.generateJwt({ id: user.id });
@@ -176,7 +178,7 @@ class UserController {
 
   async checkAuth(req, res, next) {
     try {
-      const user = await prisma.users.findUnique({
+      const user = await prisma.user.findUnique({
         where: { id: req.user.id },
       });
 
@@ -203,7 +205,7 @@ class UserController {
         return next(ApiError.BadRequest("Username is required"));
       }
 
-      const users = await prisma.users.findMany({
+      const users = await prisma.user.findMany({
         where: {
           username: { contains: username, mode: "insensitive" },
           NOT: {
@@ -224,11 +226,11 @@ class UserController {
   }
   async findAllUsers(req, res, next) {
     try {
-      const allUsers = await prisma.users.findMany({
+      const allUsers = await prisma.user.findMany({
         select: {
           id: true,
           username: true,
-          created_at: true,
+          createdAt: true,
         },
       });
       return res.json(allUsers);

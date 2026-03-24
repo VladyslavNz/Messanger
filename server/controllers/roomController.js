@@ -34,7 +34,7 @@ class RoomController {
       ];
 
       if (normalizedParticipantIds.length > 0) {
-        const usersCount = await prisma.users.count({
+        const usersCount = await prisma.user.count({
           where: {
             id: {
               in: normalizedParticipantIds,
@@ -58,18 +58,18 @@ class RoomController {
         })),
       ];
 
-      const room = await prisma.rooms.create({
+      const room = await prisma.room.create({
         data: {
           name: roomName,
           type,
           creatorId: currentUserId,
           lastActivity: new Date(),
-          roomMembers: {
+          members: {
             create: membersToCreate,
           },
         },
         include: {
-          roomMembers: {
+          members: {
             include: {
               user: {
                 select: {
@@ -94,7 +94,7 @@ class RoomController {
       const { roomId } = req.body;
       const userId = req.user.id;
 
-      const room = await prisma.rooms.findUnique({
+      const room = await prisma.room.findUnique({
         where: { id: roomId },
       });
 
@@ -102,7 +102,7 @@ class RoomController {
         return next(ApiError.NotFound("Room not found"));
       }
 
-      const member = await prisma.roomMembers.findUnique({
+      const member = await prisma.roomMember.findUnique({
         where: {
           roomId_userId: {
             roomId: roomId,
@@ -119,7 +119,7 @@ class RoomController {
         return next(ApiError.Forbidden("Only admin can delete the room"));
       }
 
-      await prisma.rooms.delete({
+      await prisma.room.delete({
         where: { id: roomId },
       });
 
@@ -141,14 +141,14 @@ class RoomController {
         return next(ApiError.BadRequest("roomId is required"));
       }
 
-      const room = await prisma.rooms.findUnique({
+      const room = await prisma.room.findUnique({
         where: { id: roomId },
       });
 
       if (!room) {
         return next(ApiError.NotFound("Room not found"));
       }
-      const member = await prisma.roomMembers.findUnique({
+      const member = await prisma.roomMember.findUnique({
         where: {
           roomId_userId: {
             roomId,
@@ -163,7 +163,7 @@ class RoomController {
       if (room.type !== "ephemeral") {
         return next(ApiError.BadRequest("Only ephemeral rooms can be deleted"));
       }
-      await prisma.rooms.delete({
+      await prisma.room.delete({
         where: { id: roomId },
       });
 
@@ -183,7 +183,7 @@ class RoomController {
       if (!roomId) {
         return next(ApiError.BadRequest("roomId is required"));
       }
-      const member = await prisma.roomMembers.findUnique({
+      const member = await prisma.roomMember.findUnique({
         where: {
           roomId_userId: {
             roomId,
@@ -194,7 +194,7 @@ class RoomController {
       if (!member) {
         return next(ApiError.Forbidden("You are not a member of this room"));
       }
-      await prisma.roomMembers.delete({
+      await prisma.roomMember.delete({
         where: {
           roomId_userId: {
             roomId,
@@ -214,9 +214,9 @@ class RoomController {
   async getUserRooms(req, res, next) {
     try {
       const userId = req.user.id;
-      const rooms = await prisma.rooms.findMany({
+      const rooms = await prisma.room.findMany({
         where: {
-          roomMembers: {
+          members: {
             some: {
               userId: userId,
             },
@@ -226,7 +226,7 @@ class RoomController {
           lastActivity: "desc",
         },
         include: {
-          roomMembers: {
+          members: {
             include: {
               user: {
                 select: {

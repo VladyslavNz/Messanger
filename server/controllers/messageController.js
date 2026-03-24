@@ -9,7 +9,7 @@ class MessageController {
       const { encryptedPayload } = req.body;
       const userId = req.user.id;
       const { roomId } = req.params;
-      const member = await prisma.roomMembers.findUnique({
+      const member = await prisma.roomMember.findUnique({
         where: {
           roomId_userId: {
             roomId,
@@ -33,7 +33,7 @@ class MessageController {
         return next(ApiError.BadRequest("Message is too long"));
       }
 
-      const participantIds = await prisma.roomMembers
+      const participantIds = await prisma.roomMember
         .findMany({
           where: { roomId },
           select: {
@@ -43,14 +43,14 @@ class MessageController {
         .then((members) => members.map((m) => m.userId));
 
       const message = await prisma.$transaction([
-        prisma.messages.create({
+        prisma.message.create({
           data: {
             roomId,
             senderId: userId,
             encryptedPayload,
           },
         }),
-        prisma.rooms.update({
+        prisma.room.update({
           where: { id: roomId },
           data: {
             lastActivity: new Date(),
@@ -92,14 +92,14 @@ class MessageController {
           ? req.query.cursor.trim()
           : null;
 
-      const room = await prisma.rooms.findUnique({
+      const room = await prisma.room.findUnique({
         where: { id: roomId },
       });
 
       if (!room) {
         return next(ApiError.NotFound("Room not found"));
       }
-      const member = await prisma.roomMembers.findUnique({
+      const member = await prisma.roomMember.findUnique({
         where: {
           roomId_userId: {
             roomId,
@@ -136,7 +136,7 @@ class MessageController {
         };
       }
 
-      const messages = await prisma.messages.findMany({
+      const messages = await prisma.message.findMany({
         where: {
           roomId,
           ...cursorFilter,
@@ -155,7 +155,9 @@ class MessageController {
 
       const hasMore = messages.length > limit;
       const items = hasMore ? messages.slice(0, limit) : messages;
-      const nextCursor = hasMore ? CursorService.encode(items[items.length - 1]) : null;
+      const nextCursor = hasMore
+        ? CursorService.encode(items[items.length - 1])
+        : null;
 
       return res.json({
         items,
@@ -175,7 +177,7 @@ class MessageController {
       const { messageId } = req.params;
       const userId = req.user.id;
 
-      const message = await prisma.messages.findUnique({
+      const message = await prisma.message.findUnique({
         where: { id: messageId },
       });
 
@@ -189,7 +191,7 @@ class MessageController {
         );
       }
 
-      await prisma.messages.delete({
+      await prisma.message.delete({
         where: { id: messageId },
       });
 
