@@ -14,5 +14,7 @@ router.delete(
   authMiddleware,
   messageController.deleteMessage,
 ); // delete message
+router.delete("/temporary", authMiddleware, roomController.deleteTemporaryRoom); // delete temporary room
+router.get("/:roomId/users/:userId/public-key", authMiddleware, roomController.getPublicKey); // get public key of user in room
 
 module.exports = router;

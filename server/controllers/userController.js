@@ -92,14 +92,6 @@ class UserController {
       //     ),
       //   );
       // }
-
-      if (publicKey && publicKey !== user.publicKey) {
-        await prisma.user.update({
-          where: { id: user.id },
-          data: { publicKey },
-        });
-      }
-
       const tokens = tokenService.generateJwt({ id: user.id });
       await tokenService.saveToken(user.id, tokens.refreshToken);
       return res

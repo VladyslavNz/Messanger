@@ -50,48 +50,25 @@ io.on("connection", (socket) => {
 
   console.log(`User connected: ${username} (${socket.id})`);
 
-  const joinRoom = (roomId) => {
+  const joinRoom = async (roomId) => {
+    const membership  = await prisma.roomMember.findUnique({
+      where: {
+        roomId_userId: {
+          roomId,
+          userId,
+        },
+      },
+    });
+
+    if (!membership) {
+      return socket.emit("error", { message: "Access denied" });
+    }
+
+
     socket.join(roomId);
     console.log(`User ${username} joined room: ${roomId}`);
   };
   socket.on("join_room", joinRoom);
-  socket.on("join_chat", joinRoom);
-
-  socket.on("typing", (roomId) => {
-    socket.to(roomId).emit("user_typing", {
-      userId: userId,
-      username: username,
-    });
-  });
-
-  socket.on("stop_typing", (roomId) => {
-    socket.to(roomId).emit("user_stop_typing", { userId: userId });
-  });
-
-  // socket.on("mark_as_read", async ({ roomId, chatId }) => {
-  //   try {
-  //     const targetRoomId = roomId ?? chatId;
-  //     const intRoomId = Number(targetRoomId);
-
-  //     await prisma.messages.updateMany({
-  //       where: {
-  //         chat_id: intRoomId,
-  //         sender_id: { not: userId },
-  //         isRead: false,
-  //       },
-  //       data: {
-  //         isRead: true,
-  //       },
-  //     });
-
-  //     socket.to(targetRoomId).emit("message_read", {
-  //       roomId: targetRoomId,
-  //       chatId: targetRoomId,
-  //     });
-  //   } catch (e) {
-  //     console.log("Error marking message as read:", e);
-  //   }
-  // });
 
   socket.on("disconnect", () => {
     onlineUsers.delete(userId);

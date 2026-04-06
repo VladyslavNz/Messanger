@@ -244,6 +244,24 @@ class RoomController {
       return next(ApiError.ServerError("Failed to get user rooms"));
     }
   }
+
+  async getPublicKey(req, res, next) {
+    try {
+      const { userId } = req.params;
+      const user = await prisma.roomMember.findUnique({
+        where: { id: userId },
+        select: { publicKey: true },
+      });
+      if (!user) {
+        return next(ApiError.NotFound("User not found"));
+      }
+      return res.json({ publicKey: user.publicKey });
+    } catch (e) {
+      console.error("getPublicKey error:", e);
+      return next(ApiError.ServerError("Failed to get public key"));
+    }
+  }
+
 }
 
 module.exports = new RoomController();
